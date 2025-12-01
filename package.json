@@ -1,0 +1,78 @@
+{
+  "name": "svelte-luma",
+  "version": "0.1.0",
+  "description": "Svelte bindings for luma.gl - High-performance WebGL2/WebGPU rendering",
+  "type": "module",
+  "svelte": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "svelte": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build && npm run package",
+    "preview": "vite preview",
+    "package": "svelte-kit sync && svelte-package && publint",
+    "prepublishOnly": "npm run package",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "peerDependencies": {
+    "@luma.gl/core": "^9.0.0",
+    "@luma.gl/engine": "^9.0.0",
+    "@luma.gl/shadertools": "^9.0.0",
+    "@luma.gl/webgl": "^9.0.0",
+    "@luma.gl/webgpu": "^9.0.0",
+    "svelte": "^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@luma.gl/webgpu": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@luma.gl/core": "^9.1.0-alpha.19",
+    "@luma.gl/engine": "^9.1.0-alpha.19",
+    "@luma.gl/shadertools": "^9.1.0-alpha.19",
+    "@luma.gl/webgl": "^9.1.0-alpha.19",
+    "@luma.gl/webgpu": "^9.1.0-alpha.19",
+    "@sveltejs/adapter-auto": "^3.0.0",
+    "@sveltejs/kit": "^2.0.0",
+    "@sveltejs/package": "^2.0.0",
+    "@sveltejs/vite-plugin-svelte": "^4.0.0",
+    "@types/node": "^22.0.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.0.0",
+    "prettier-plugin-svelte": "^3.0.0",
+    "publint": "^0.2.0",
+    "svelte": "^5.0.0",
+    "svelte-check": "^4.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^5.0.0"
+  },
+  "keywords": [
+    "svelte",
+    "luma.gl",
+    "webgl",
+    "webgpu",
+    "3d",
+    "graphics",
+    "rendering",
+    "visualization"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/user/svelte-luma"
+  },
+  "license": "MIT",
+  "author": "Your Name"
+}
