@@ -14,14 +14,10 @@ High-performance WebGL2/WebGPU bindings for Svelte 5, powered by [luma.gl](https
 ## Installation
 
 ```bash
-npm install svelte-luma @luma.gl/core @luma.gl/engine @luma.gl/webgl
+npm install svelte-luma
 ```
 
-For WebGPU support:
-
-```bash
-npm install @luma.gl/webgpu
-```
+WebGPU support (`@luma.gl/webgpu`) is included as an optional dependency and will be used automatically when available.
 
 ## Quick Start
 
