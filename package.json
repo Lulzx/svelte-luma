@@ -1,6 +1,6 @@
 {
   "name": "svelte-luma",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Svelte bindings for luma.gl - High-performance WebGL2/WebGPU rendering",
   "type": "module",
   "svelte": "./dist/index.js",
@@ -26,18 +26,17 @@
     "lint": "eslint .",
     "format": "prettier --write ."
   },
-  "peerDependencies": {
+  "dependencies": {
     "@luma.gl/core": "^9.0.0",
     "@luma.gl/engine": "^9.0.0",
     "@luma.gl/shadertools": "^9.0.0",
-    "@luma.gl/webgl": "^9.0.0",
-    "@luma.gl/webgpu": "^9.0.0",
+    "@luma.gl/webgl": "^9.0.0"
+  },
+  "peerDependencies": {
     "svelte": "^5.0.0"
   },
-  "peerDependenciesMeta": {
-    "@luma.gl/webgpu": {
-      "optional": true
-    }
+  "optionalDependencies": {
+    "@luma.gl/webgpu": "^9.0.0"
   },
   "devDependencies": {
     "@luma.gl/core": "^9.1.0-alpha.19",
