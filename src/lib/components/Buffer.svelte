@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import type { Buffer as LumaBuffer } from '@luma.gl/core';
-	import { getLumaContext } from '../context.js';
+	import { getLumaState } from '../state.svelte.js';
 
 	interface Props {
 		data?: ArrayBufferView | number[];
@@ -12,11 +12,11 @@
 
 	let { data, byteLength, usage = 0x88e4, onbuffercreated }: Props = $props();
 
-	const lumaContext = getLumaContext();
+	const lumaState = getLumaState();
 	let buffer: LumaBuffer | null = $state(null);
 
 	onMount(() => {
-		const device = lumaContext.getDevice();
+		const device = lumaState.device;
 		if (!device) return;
 
 		const bufferData = Array.isArray(data) ? new Float32Array(data) : data;

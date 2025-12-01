@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { Model as LumaModel, type ModelProps } from '@luma.gl/engine';
-	import { getLumaContext, getRenderContext } from '../context.js';
+	import { getLumaState, RenderLayers, type RenderPriority } from '../state.svelte.js';
 	import type { ModelComponentProps } from '../types.js';
 
 	interface Props extends ModelComponentProps {
-		draw?: boolean;
+		visible?: boolean;
+		renderOrder?: RenderPriority;
 		onmodelcreated?: (model: LumaModel) => void;
 	}
 
@@ -21,20 +22,32 @@
 		bindings = {},
 		parameters = {},
 		shaderLayout,
-		draw = true,
+		visible = true,
+		renderOrder = RenderLayers.OPAQUE,
 		onmodelcreated
 	}: Props = $props();
 
-	const lumaContext = getLumaContext();
-	const renderContext = getRenderContext();
+	const lumaState = getLumaState();
 
 	let model: LumaModel | null = $state(null);
+	let callbackId: symbol | null = null;
 
 	function renderCallback() {
-		if (!model || !draw) return;
+		if (!model || !visible) return;
 
-		const device = lumaContext.getDevice();
+		const device = lumaState.device;
 		if (!device) return;
+
+		if (lumaState.scene) {
+			(model as any).setUniforms({
+				...uniforms,
+				uProjectionMatrix: lumaState.scene.projectionMatrix,
+				uViewMatrix: lumaState.scene.viewMatrix,
+				uCameraPosition: lumaState.scene.cameraPosition
+			});
+		} else if (Object.keys(uniforms).length > 0) {
+			(model as any).setUniforms(uniforms);
+		}
 
 		const renderPass = device.beginRenderPass({ clearColor: [0, 0, 0, 0] });
 		model.draw(renderPass);
@@ -42,10 +55,10 @@
 	}
 
 	onMount(() => {
-		const device = lumaContext.getDevice();
+		const device = lumaState.device;
 		if (!device) return;
 
-		const modelProps: ModelProps = {
+		const modelProps: any = {
 			device,
 			topology,
 			vertexCount,
@@ -56,40 +69,32 @@
 			}
 		};
 
-		if (source) {
-			modelProps.source = source;
-		}
-		if (vs) {
-			modelProps.vs = vs;
-		}
-		if (fs) {
-			modelProps.fs = fs;
-		}
-		if (geometry) {
-			modelProps.geometry = geometry;
-		}
-		if (shaderLayout) {
-			modelProps.shaderLayout = shaderLayout;
-		}
+		if (source) modelProps.source = source;
+		if (vs) modelProps.vs = vs;
+		if (fs) modelProps.fs = fs;
+		if (geometry) modelProps.geometry = geometry;
+		if (shaderLayout) modelProps.shaderLayout = shaderLayout;
 
 		model = new LumaModel(device, modelProps);
 
 		if (Object.keys(uniforms).length > 0) {
-			model.setUniforms(uniforms);
+			(model as any).setUniforms(uniforms);
 		}
 		if (Object.keys(bindings).length > 0) {
-			model.setBindings(bindings);
+			(model as any).setBindings(bindings);
 		}
 
 		if (onmodelcreated) {
 			onmodelcreated(model);
 		}
 
-		renderContext.addRenderCallback(renderCallback);
+		callbackId = lumaState.addRenderCallback(renderCallback, renderOrder);
 	});
 
 	onDestroy(() => {
-		renderContext.removeRenderCallback(renderCallback);
+		if (callbackId) {
+			lumaState.removeRenderCallback(callbackId);
+		}
 		if (model) {
 			model.destroy();
 		}
@@ -97,17 +102,21 @@
 
 	$effect(() => {
 		if (model && Object.keys(uniforms).length > 0) {
-			model.setUniforms(uniforms);
+			(model as any).setUniforms(uniforms);
 		}
 	});
 
 	$effect(() => {
 		if (model && Object.keys(bindings).length > 0) {
-			model.setBindings(bindings);
+			(model as any).setBindings(bindings);
 		}
 	});
 
 	export function getModel(): LumaModel | null {
 		return model;
+	}
+
+	export function setVisible(v: boolean): void {
+		visible = v;
 	}
 </script>

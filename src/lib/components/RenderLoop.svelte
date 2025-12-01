@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { onMount, onDestroy, getContext } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import type { Device } from '@luma.gl/core';
-	import { getLumaContext, getRenderContext } from '../context.js';
+	import { getLumaState, RenderLayers } from '../state.svelte.js';
 
 	interface FrameContext {
 		time: number;
@@ -18,38 +18,35 @@
 
 	let { onframe, children }: Props = $props();
 
-	const lumaContext = getLumaContext();
-	const renderContext = getRenderContext();
-	const frameStore = getContext<{ subscribe: (fn: (v: any) => void) => () => void }>('luma:frame');
+	const lumaState = getLumaState();
 
 	let currentFrame: FrameContext | null = $state(null);
+	let callbackId: symbol | null = null;
 
 	function renderCallback() {
-		const device = lumaContext.getDevice();
+		const device = lumaState.device;
 		if (!device) return;
 
+		currentFrame = {
+			time: lumaState.frame.time,
+			deltaTime: lumaState.frame.deltaTime,
+			frameCount: lumaState.frame.frameCount,
+			device
+		};
+
 		if (onframe && currentFrame) {
-			onframe({ ...currentFrame, device });
+			onframe(currentFrame);
 		}
 	}
 
 	onMount(() => {
-		const unsubscribe = frameStore.subscribe((frame) => {
-			const device = lumaContext.getDevice();
-			if (device) {
-				currentFrame = { ...frame, device };
-			}
-		});
-
-		renderContext.addRenderCallback(renderCallback);
-
-		return () => {
-			unsubscribe();
-		};
+		callbackId = lumaState.addRenderCallback(renderCallback, RenderLayers.OPAQUE);
 	});
 
 	onDestroy(() => {
-		renderContext.removeRenderCallback(renderCallback);
+		if (callbackId) {
+			lumaState.removeRenderCallback(callbackId);
+		}
 	});
 </script>
 

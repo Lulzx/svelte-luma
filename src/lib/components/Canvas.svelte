@@ -1,10 +1,9 @@
 <script lang="ts">
-	import { onMount, onDestroy, setContext } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import type { Device } from '@luma.gl/core';
-	import { createDevice } from '../utils.js';
-	import { setLumaContext, setRenderContext } from '../context.js';
-	import { createFrameStore, createViewportStore, createMouseStore } from '../stores.js';
+	import { LumaState, setLumaState } from '../state.svelte.js';
+	import { resetMatrixPool } from '../math.js';
 	import type { Backend } from '../types.js';
 
 	interface Props {
@@ -14,6 +13,7 @@
 		backend?: Backend;
 		clearColor?: [number, number, number, number];
 		autoClear?: boolean;
+		antialias?: boolean;
 		class?: string;
 		style?: string;
 		children?: Snippet;
@@ -29,6 +29,7 @@
 		backend = 'best',
 		clearColor = [0, 0, 0, 1],
 		autoClear = true,
+		antialias = true,
 		class: className = '',
 		style = '',
 		children,
@@ -38,47 +39,42 @@
 	}: Props = $props();
 
 	let canvas: HTMLCanvasElement;
-	let device: Device | null = $state(null);
-	let ready = $state(false);
-	let error: Error | null = $state(null);
 	let animationFrameId: number;
 
-	const frameStore = createFrameStore();
-	const viewportStore = createViewportStore(width, height, pixelRatio);
-	const mouseStore = createMouseStore();
+	const lumaState = new LumaState();
+	setLumaState(lumaState);
 
-	const renderCallbacks = new Set<() => void>();
-
-	setLumaContext({
-		getDevice: () => device,
-		isReady: () => ready
-	});
-
-	setRenderContext({
-		addRenderCallback: (cb) => renderCallbacks.add(cb),
-		removeRenderCallback: (cb) => renderCallbacks.delete(cb)
-	});
-
-	setContext('luma:frame', frameStore);
-	setContext('luma:viewport', viewportStore);
-	setContext('luma:mouse', mouseStore);
-	setContext('luma:device', {
-		get: () => device,
-		subscribe: (fn: (d: Device | null) => void) => {
-			fn(device);
-			return () => {};
+	async function createDeviceInternal(
+		canvasEl: HTMLCanvasElement,
+		backend: Backend
+	): Promise<Device> {
+		if (backend === 'webgpu' || backend === 'best') {
+			try {
+				const { webgpuAdapter } = await import('@luma.gl/webgpu');
+				const device = await webgpuAdapter.create({ canvas: canvasEl } as any);
+				return device;
+			} catch (e) {
+				if (backend === 'webgpu') {
+					throw new Error('WebGPU not supported in this browser');
+				}
+			}
 		}
-	});
+
+		const { webgl2Adapter } = await import('@luma.gl/webgl');
+		const device = await webgl2Adapter.create({ canvas: canvasEl } as any);
+		return device;
+	}
 
 	function render(time: number) {
-		if (!device || !ready) return;
+		if (!lumaState.device || !lumaState.ready) return;
 
-		frameStore.update(time);
+		resetMatrixPool();
+		lumaState.updateFrame(time);
 
 		if (autoClear) {
-			const canvasContext = device.canvasContext;
+			const canvasContext = lumaState.device.canvasContext;
 			if (canvasContext) {
-				const renderPass = device.beginRenderPass({
+				const renderPass = lumaState.device.beginRenderPass({
 					clearColor,
 					clearDepth: 1
 				});
@@ -86,13 +82,14 @@
 			}
 		}
 
-		for (const callback of renderCallbacks) {
-			callback();
-		}
+		lumaState.executeRenderCallbacks();
 
-		if (onframe) {
-			const state = { time, deltaTime: 0, device };
-			onframe(state);
+		if (onframe && lumaState.device) {
+			onframe({
+				time,
+				deltaTime: lumaState.frame.deltaTime,
+				device: lumaState.device
+			});
 		}
 
 		animationFrameId = requestAnimationFrame(render);
@@ -100,23 +97,31 @@
 
 	function handleMouseMove(e: MouseEvent) {
 		const rect = canvas.getBoundingClientRect();
-		mouseStore.updatePosition(e.clientX - rect.left, e.clientY - rect.top, width, height);
+		lumaState.updateMousePosition(e.clientX, e.clientY, rect);
 	}
 
 	function handleMouseDown(e: MouseEvent) {
-		mouseStore.updateButtons(e.buttons);
+		lumaState.updateMouseButtons(e.buttons);
 	}
 
 	function handleMouseUp(e: MouseEvent) {
-		mouseStore.updateButtons(e.buttons);
+		lumaState.updateMouseButtons(e.buttons);
 	}
 
 	function handleMouseEnter() {
-		mouseStore.setOver(true);
+		lumaState.setMouseOver(true);
 	}
 
 	function handleMouseLeave() {
-		mouseStore.setOver(false);
+		lumaState.setMouseOver(false);
+	}
+
+	function handleWheel(e: WheelEvent) {
+		e.preventDefault();
+	}
+
+	function handleContextMenu(e: MouseEvent) {
+		e.preventDefault();
 	}
 
 	onMount(async () => {
@@ -124,8 +129,9 @@
 			canvas.width = width * pixelRatio;
 			canvas.height = height * pixelRatio;
 
-			device = await createDevice(canvas, backend);
-			ready = true;
+			const device = await createDeviceInternal(canvas, backend);
+			lumaState.setDevice(device);
+			lumaState.setViewport(width, height, pixelRatio);
 
 			if (ondevicecreated) {
 				ondevicecreated(device);
@@ -133,7 +139,8 @@
 
 			animationFrameId = requestAnimationFrame(render);
 		} catch (e) {
-			error = e instanceof Error ? e : new Error(String(e));
+			const error = e instanceof Error ? e : new Error(String(e));
+			lumaState.setError(error);
 			if (onerror) {
 				onerror(error);
 			}
@@ -144,16 +151,14 @@
 		if (animationFrameId) {
 			cancelAnimationFrame(animationFrameId);
 		}
-		if (device) {
-			device.destroy();
-		}
+		lumaState.destroy();
 	});
 
 	$effect(() => {
 		if (canvas) {
 			canvas.width = width * pixelRatio;
 			canvas.height = height * pixelRatio;
-			viewportStore.setSize(width, height);
+			lumaState.setViewport(width, height, pixelRatio);
 		}
 	});
 </script>
@@ -169,21 +174,24 @@
 	onmouseup={handleMouseUp}
 	onmouseenter={handleMouseEnter}
 	onmouseleave={handleMouseLeave}
+	onwheel={handleWheel}
+	oncontextmenu={handleContextMenu}
 >
-	{#if ready && children}
+	{#if lumaState.ready && children}
 		{@render children()}
 	{/if}
 </canvas>
 
-{#if error}
+{#if lumaState.error}
 	<div class="luma-error">
-		<p>Failed to initialize WebGL/WebGPU: {error.message}</p>
+		<p>Failed to initialize WebGL/WebGPU: {lumaState.error.message}</p>
 	</div>
 {/if}
 
 <style>
 	canvas {
 		display: block;
+		touch-action: none;
 	}
 
 	.luma-error {

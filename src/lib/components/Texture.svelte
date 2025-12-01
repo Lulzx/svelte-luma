@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import type { Texture as LumaTexture } from '@luma.gl/core';
-	import { getLumaContext } from '../context.js';
+	import { getLumaState } from '../state.svelte.js';
 
 	interface Props {
 		src?: string;
@@ -9,7 +9,6 @@
 		width?: number;
 		height?: number;
 		format?: string;
-		mipmaps?: boolean;
 		ontexturecreated?: (texture: LumaTexture) => void;
 		ontextureloaded?: (texture: LumaTexture) => void;
 	}
@@ -20,12 +19,11 @@
 		width = 1,
 		height = 1,
 		format = 'rgba8unorm',
-		mipmaps = true,
 		ontexturecreated,
 		ontextureloaded
 	}: Props = $props();
 
-	const lumaContext = getLumaContext();
+	const lumaState = getLumaState();
 	let texture: LumaTexture | null = $state(null);
 
 	async function loadImage(url: string): Promise<HTMLImageElement> {
@@ -39,7 +37,7 @@
 	}
 
 	onMount(async () => {
-		const device = lumaContext.getDevice();
+		const device = lumaState.device;
 		if (!device) return;
 
 		if (src) {
@@ -48,24 +46,22 @@
 				data: img,
 				width: img.width,
 				height: img.height,
-				format: format as any,
-				mipmaps
-			});
+				format: format as any
+			} as any);
 
 			if (ontextureloaded) {
 				ontextureloaded(texture);
 			}
-		} else {
+		} else if (data) {
 			texture = device.createTexture({
-				data,
+				data: data as any,
 				width,
 				height,
-				format: format as any,
-				mipmaps
-			});
+				format: format as any
+			} as any);
 		}
 
-		if (ontexturecreated) {
+		if (ontexturecreated && texture) {
 			ontexturecreated(texture);
 		}
 	});

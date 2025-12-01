@@ -1,24 +1,17 @@
-import type { Device, DeviceProps } from '@luma.gl/core';
+import type { Device } from '@luma.gl/core';
 import type { ModelProps, Geometry } from '@luma.gl/engine';
 
 export type Backend = 'webgl' | 'webgpu' | 'best';
-
-export interface LumaContextValue {
-	device: Device | null;
-	backend: Backend;
-	ready: boolean;
-	error: Error | null;
-}
 
 export interface CanvasProps {
 	width?: number;
 	height?: number;
 	pixelRatio?: number;
 	backend?: Backend;
-	deviceProps?: Partial<DeviceProps>;
 	clearColor?: [number, number, number, number];
 	clearDepth?: number;
 	autoClear?: boolean;
+	antialias?: boolean;
 	class?: string;
 	style?: string;
 }
@@ -48,7 +41,6 @@ export interface TextureProps {
 	width?: number;
 	height?: number;
 	format?: string;
-	mipmaps?: boolean;
 }
 
 export interface AnimationContext {
@@ -57,8 +49,6 @@ export interface AnimationContext {
 	frameCount: number;
 	device: Device;
 }
-
-export type RenderCallback = (context: AnimationContext) => void;
 
 export interface GeometryData {
 	positions?: Float32Array | number[];
